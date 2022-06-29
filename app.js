@@ -54,6 +54,15 @@ app.post('/', function(req, res) {
   item.save();
   res.redirect('/');
 });
+app.post('/delete' , function(req , res){
+  const itemID = req.body.itemName;
+  Item.findByIdAndRemove(itemID , err=>{
+    if(err)
+    console.log(err);
+    else console.log("succesfully deleted!");
+    res.redirect('/');
+  });
+});
 
 app.get('/work', function(req, res) {
   res.render('list', {
