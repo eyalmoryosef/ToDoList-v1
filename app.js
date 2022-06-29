@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const port = 3000;
 const app = express();
+const _ = require('lodash');
 const date = require(__dirname + '/date.js');
 app.use(bodyParser.urlencoded({
   extended: true
@@ -23,6 +24,11 @@ var initialItems = [{
 }, {
   name: "<--hit this button to delete tasks"
 }];
+const listSchema = new mongoose.Schema({
+  name: String,
+  items: [itemSchema]
+});
+const CustomList = mongoose.model('customList', listSchema);
 const Item = mongoose.model('Item', itemSchema);
 app.get('/', function(req, res) {
   let day = date.getDate();
@@ -50,31 +56,66 @@ app.get('/', function(req, res) {
 
 app.post('/', function(req, res) {
   var itemName = req.body.newItem;
-  const item = new Item({name: itemName});
+  const item = new Item({
+    name: itemName
+  });
   item.save();
   res.redirect('/');
 });
-app.post('/delete' , function(req , res){
-  const itemID = req.body.itemName;
-  Item.findByIdAndRemove(itemID , err=>{
-    if(err)
-    console.log(err);
-    else console.log("succesfully deleted!");
-    res.redirect('/');
-  });
-});
+app.post('/delete', function(req, res) {
+  const day = date.getDate();
+  const itemID = req.body.itemID;
+  const listName = req.body.listName;
+  if (listName === day) {
+    Item.findByIdAndRemove(itemID, err => {
+      if (err)
+        console.log(err);
 
-app.get('/work', function(req, res) {
-  res.render('list', {
-    listTitle: "Work List",
-    newListItem: workItems,
-    route: "/work"
-  });
+      res.redirect('/');
+    });
+  } else {
+    CustomList.findOneAndUpdate({
+      name: listName
+    }, {
+      $pull: {
+        items: {
+          _id: itemID
+        }
+      }
+    }, function(err, result) {
+      if (!err)
+        res.redirect('/' + listName);
+    });
+  }
 });
-app.post('/work', function(req, res) {
-  var item = req.body.newItem;
-  workItems.push(item);
-  res.redirect('/work');
+app.get('/:dynamicList', function(req, res) {
+  const listName = _.capitalize(req.params.dynamicList);
+  CustomList.findOne({
+    name: listName
+  }, (err, foundList) => {
+    if (!err) {
+      if (!foundList) {
+        const list = new CustomList({
+          name: listName,
+          items: initialItems
+        });
+        list.save((err , doc)=>{
+          if(err)
+          console.log(err);
+          else
+          res.redirect('/' + list.name);
+        });
+
+      } else {
+        res.render('list', {
+          listTitle: foundList.name,
+          newListItem: foundList.items,
+          route: "/" + foundList.name
+        });
+      }
+    }
+
+  });
 });
 
 
